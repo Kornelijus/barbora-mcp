@@ -1,0 +1,168 @@
+import { loadSession, shopOrigin, shopTarget, type Session } from "./password-sign-in.ts";
+
+export type CartUnit = {
+  min: number;
+  max: number;
+  step: number;
+};
+
+export type CartLine = {
+  id: string;
+  title: string;
+  quantity: number;
+  price: number;
+};
+
+export type Cart = {
+  lines: CartLine[];
+  total: number;
+};
+
+export type CartResult =
+  | { ok: true; cart: Cart }
+  | { ok: false; reason: "signed-out" | "quantity" }
+  | { ok: false; reason: "rejected"; status: number };
+
+export async function readCart(input: { sessionFile: string; origin?: string }): Promise<CartResult> {
+  const opened = await openSession(input.sessionFile, input.origin);
+  if (!opened.ok) return opened;
+  const response = await shopRequest(opened, "GET", "/proxy/api/v1/cart");
+  return parseCart(response);
+}
+
+export async function addToCart(input: {
+  sessionFile: string;
+  productId: string;
+  quantity: number;
+  unit?: CartUnit;
+  origin?: string;
+}): Promise<CartResult> {
+  return writeCart({
+    ...input,
+    method: "POST",
+    path: "/proxy/api/v1/cart/item",
+    body: { id: input.productId, quantity: input.quantity },
+  });
+}
+
+export async function changeQuantity(input: {
+  sessionFile: string;
+  productId: string;
+  quantity: number;
+  unit?: CartUnit;
+  origin?: string;
+}): Promise<CartResult> {
+  return writeCart({
+    ...input,
+    method: "PATCH",
+    path: `/proxy/api/v1/cart/item/${encodeURIComponent(input.productId)}`,
+    body: { quantity: input.quantity },
+  });
+}
+
+export async function removeLine(input: {
+  sessionFile: string;
+  productId: string;
+  origin?: string;
+}): Promise<CartResult> {
+  return writeCart({
+    ...input,
+    method: "DELETE",
+    path: `/proxy/api/v1/cart/item/${encodeURIComponent(input.productId)}`,
+  });
+}
+
+async function writeCart(input: {
+  sessionFile: string;
+  origin?: string;
+  method: string;
+  path: string;
+  body?: unknown;
+  quantity?: number;
+  unit?: CartUnit;
+}): Promise<CartResult> {
+  if (input.unit && input.quantity !== undefined && !acceptsQuantity(input.quantity, input.unit)) {
+    return { ok: false, reason: "quantity" };
+  }
+  const opened = await openSession(input.sessionFile, input.origin);
+  if (!opened.ok) return opened;
+  const response = await shopRequest(opened, input.method, input.path, input.body);
+  const failed = failure(response);
+  if (failed) return failed;
+  return readCart({ sessionFile: input.sessionFile, origin: input.origin });
+}
+
+type OpenSession = { ok: true; session: Session; origin: string; cookie: string };
+
+async function openSession(sessionFile: string, origin: string | undefined): Promise<OpenSession | { ok: false; reason: "signed-out" }> {
+  const session = await loadSession(sessionFile);
+  if (!session) return { ok: false, reason: "signed-out" };
+  const shopUrl = origin ?? shopOrigin(session.country);
+  const hostname = new URL(shopUrl).hostname;
+  const cookie = session.cookies
+    .filter((cookie) => hostname === cookie.domain || hostname.endsWith(`.${cookie.domain}`))
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join("; ");
+  if (!cookie) return { ok: false, reason: "signed-out" };
+  return { ok: true, session, origin: shopUrl, cookie };
+}
+
+async function shopRequest(opened: OpenSession, method: string, path: string, body?: unknown): Promise<Response> {
+  const target = shopTarget(opened.session.country);
+  return fetch(new URL(path, opened.origin), {
+    method,
+    redirect: "manual",
+    headers: {
+      accept: "application/json",
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+      "x-target": target,
+      "x-source": target,
+      cookie: opened.cookie,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+function failure(response: Response): CartResult | undefined {
+  if (response.status === 401) return { ok: false, reason: "signed-out" };
+  if (!response.ok) return { ok: false, reason: "rejected", status: response.status };
+  return undefined;
+}
+
+async function parseCart(response: Response): Promise<CartResult> {
+  const failed = failure(response);
+  if (failed) return failed;
+  const payload = (await response.json()) as {
+    items?: unknown[];
+    summary?: { prices?: { totalPrice?: number } };
+  };
+  const total = payload.summary?.prices?.totalPrice;
+  if (typeof total !== "number") return { ok: false, reason: "rejected", status: response.status };
+  return { ok: true, cart: { lines: linesFrom(payload.items ?? []), total } };
+}
+
+function linesFrom(items: unknown[]): CartLine[] {
+  const lines: CartLine[] = [];
+  for (const entry of items) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as { items?: unknown[]; id?: unknown; title?: unknown; quantity?: unknown; price?: unknown };
+    if (Array.isArray(record.items)) {
+      lines.push(...linesFrom(record.items));
+      continue;
+    }
+    if (typeof record.id !== "string") continue;
+    lines.push({
+      id: record.id,
+      title: typeof record.title === "string" ? record.title : "",
+      quantity: typeof record.quantity === "number" ? record.quantity : 0,
+      price: typeof record.price === "number" ? record.price : 0,
+    });
+  }
+  return lines;
+}
+
+function acceptsQuantity(quantity: number, unit: CartUnit): boolean {
+  if (!Number.isFinite(quantity) || quantity < unit.min || quantity > unit.max) return false;
+  const steps = (quantity - unit.min) / unit.step;
+  return Math.abs(steps - Math.round(steps)) < 1e-6;
+}

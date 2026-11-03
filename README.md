@@ -32,10 +32,21 @@ node --experimental-strip-types src/cli.ts search --query pienas --country LT
 node --experimental-strip-types src/cli.ts product --slug juoda-rugine-raikyta-mociutes-duona-450-g --country LT
 ```
 
+## Cart
+
+The cart uses the saved session. Totals are the totals the shop returned.
+
+```bash
+node --experimental-strip-types src/cli.ts cart
+node --experimental-strip-types src/cli.ts cart add --id 000000000001335200 --quantity 1 --min 1 --max 10 --step 1
+node --experimental-strip-types src/cli.ts cart set --id 000000000001335200 --quantity 2 --min 1 --max 10 --step 1
+node --experimental-strip-types src/cli.ts cart remove --id 000000000001335200
+```
+
 ```bash
 npm test
 ```
 
 ## Status
 
-Password sign-in, browser sign-in, and catalog search work. The cart and checkout are separate issues. Nothing here places an order yet.
+Password sign-in, browser sign-in, catalog search, and the cart work. Checkout is a separate issue. Nothing here places an order yet.
