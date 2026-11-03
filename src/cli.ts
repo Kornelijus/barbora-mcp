@@ -4,6 +4,7 @@ import path from "node:path";
 import { signInWithBrowser } from "./browser-sign-in.ts";
 import { addToCart, changeQuantity, readCart, removeLine, type CartResult, type CartUnit } from "./cart.ts";
 import { readProduct, searchCatalog } from "./catalog.ts";
+import { formatPreview, previewCheckout } from "./checkout.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
 import { signInWithPassword, type Country } from "./password-sign-in.ts";
 
@@ -28,6 +29,7 @@ function usage(): void {
   stdout.write("       cart add --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
   stdout.write("       cart set --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
   stdout.write("       cart remove --id <id>\n");
+  stdout.write("       checkout\n");
 }
 
 function readCountry(): Country | undefined {
@@ -243,11 +245,29 @@ function readUnit(): CartUnit | undefined | "incomplete" {
   return unit;
 }
 
+async function checkoutCommand(): Promise<number> {
+  const result = await previewCheckout({
+    sessionFile: argument("--session-file") ?? sessionFile(),
+    origin: argument("--origin"),
+  });
+  if (!result.ok) {
+    const message =
+      result.reason === "signed-out"
+        ? "Sign in before checkout.\n"
+        : `Barbora rejected the checkout preview (${result.status}).\n`;
+    stdout.write(message);
+    return 1;
+  }
+  stdout.write(`${formatPreview(result.preview)}\n`);
+  return 0;
+}
+
 const command = process.argv[2];
 if (command === "login") process.exitCode = await login();
 else if (command === "search") process.exitCode = await searchCommand();
 else if (command === "product") process.exitCode = await productCommand();
 else if (command === "cart") process.exitCode = await cartCommand();
+else if (command === "checkout") process.exitCode = await checkoutCommand();
 else {
   usage();
   process.exitCode = 1;

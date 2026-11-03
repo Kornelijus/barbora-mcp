@@ -92,6 +92,19 @@ async function writeCart(input: {
   return readCart({ sessionFile: input.sessionFile, origin: input.origin });
 }
 
+export async function shopJson(input: {
+  sessionFile: string;
+  origin?: string;
+  path: string;
+}): Promise<{ ok: true; body: unknown } | { ok: false; reason: "signed-out" } | { ok: false; reason: "rejected"; status: number }> {
+  const opened = await openSession(input.sessionFile, input.origin);
+  if (!opened.ok) return opened;
+  const response = await shopRequest(opened, "GET", input.path);
+  if (response.status === 401) return { ok: false, reason: "signed-out" };
+  if (!response.ok) return { ok: false, reason: "rejected", status: response.status };
+  return { ok: true, body: await response.json() };
+}
+
 type OpenSession = { ok: true; session: Session; origin: string; cookie: string };
 
 async function openSession(sessionFile: string, origin: string | undefined): Promise<OpenSession | { ok: false; reason: "signed-out" }> {
