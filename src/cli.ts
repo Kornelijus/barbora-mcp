@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { signInWithBrowser } from "./browser-sign-in.ts";
 import { addToCart, changeQuantity, readCart, removeLine, type CartResult, type CartUnit } from "./cart.ts";
+import { readProduct, searchCatalog } from "./catalog.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
 import { signInWithPassword, type Country } from "./password-sign-in.ts";
 
@@ -21,10 +22,21 @@ function argument(name: string): string | undefined {
 function usage(): void {
   stdout.write("Usage: login --email you@example.com --country LT|EE|LV\n");
   stdout.write("       login --browser --country LT|EE|LV\n");
+  stdout.write("       search --query pienas --country LT|EE|LV\n");
+  stdout.write("       product --slug <slug> --country LT|EE|LV\n");
   stdout.write("       cart\n");
   stdout.write("       cart add --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
   stdout.write("       cart set --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
   stdout.write("       cart remove --id <id>\n");
+}
+
+function readCountry(): Country | undefined {
+  const country = argument("--country") ?? "LT";
+  if (!COUNTRIES.has(country as Country)) {
+    usage();
+    return undefined;
+  }
+  return country as Country;
 }
 
 function readStdin(): Promise<string> {
@@ -100,13 +112,54 @@ async function browserLogin(country: Country): Promise<number> {
   }
 }
 
-async function login(): Promise<number> {
-  const country = argument("--country") ?? "LT";
-  if (!COUNTRIES.has(country as Country)) {
+async function searchCommand(): Promise<number> {
+  const country = readCountry();
+  if (!country) return 1;
+  const query = argument("--query");
+  if (!query) {
     usage();
     return 1;
   }
-  if (process.argv.includes("--browser")) return browserLogin(country as Country);
+  const result = await searchCatalog({ query, country, origin: argument("--origin") });
+  if (!result.ok) {
+    stdout.write(`Barbora rejected the search (${result.status}).\n`);
+    return 1;
+  }
+  if (result.products.length === 0) {
+    stdout.write("No products matched.\n");
+    return 0;
+  }
+  for (const product of result.products) {
+    const unit = product.unit;
+    stdout.write(
+      `${product.title} — ${product.price} — ${product.slug} — ${product.id} — ${unit.type} ${unit.min}-${unit.max} step ${unit.step}\n`,
+    );
+  }
+  return 0;
+}
+
+async function productCommand(): Promise<number> {
+  const country = readCountry();
+  if (!country) return 1;
+  const slug = argument("--slug");
+  if (!slug) {
+    usage();
+    return 1;
+  }
+  const result = await readProduct({ slug, country, origin: argument("--origin") });
+  if (!result.ok) {
+    stdout.write(`Barbora rejected the product lookup (${result.status}).\n`);
+    return 1;
+  }
+  const product = result.product;
+  stdout.write(`${product.title} — ${product.price}\n${product.description}\n`);
+  return 0;
+}
+
+async function login(): Promise<number> {
+  const country = readCountry();
+  if (!country) return 1;
+  if (process.argv.includes("--browser")) return browserLogin(country);
   const email = argument("--email");
   if (!email) {
     usage();
@@ -116,7 +169,7 @@ async function login(): Promise<number> {
   const result = await signInWithPassword({
     email,
     password,
-    country: country as Country,
+    country,
     rememberMe: true,
     sessionFile: argument("--session-file") ?? sessionFile(),
     origin: argument("--origin"),
@@ -192,6 +245,8 @@ function readUnit(): CartUnit | undefined | "incomplete" {
 
 const command = process.argv[2];
 if (command === "login") process.exitCode = await login();
+else if (command === "search") process.exitCode = await searchCommand();
+else if (command === "product") process.exitCode = await productCommand();
 else if (command === "cart") process.exitCode = await cartCommand();
 else {
   usage();

@@ -23,6 +23,15 @@ npm install playwright
 node --experimental-strip-types src/cli.ts login --browser --country LT
 ```
 
+## Catalog
+
+Search the catalog with no session. Titles that start with `UAT` are left out.
+
+```bash
+node --experimental-strip-types src/cli.ts search --query pienas --country LT
+node --experimental-strip-types src/cli.ts product --slug juoda-rugine-raikyta-mociutes-duona-450-g --country LT
+```
+
 ## Cart
 
 The cart uses the saved session. Totals are the totals the shop returned.
@@ -40,4 +49,4 @@ npm test
 
 ## Status
 
-Password sign-in, browser sign-in, and the cart work. Catalog search and checkout are separate issues. Nothing here places an order yet.
+Password sign-in, browser sign-in, catalog search, and the cart work. Checkout is a separate issue. Nothing here places an order yet.
