@@ -1,6 +1,7 @@
 import { signInWithBrowser, type BrowserLauncher } from "./browser-sign-in.ts";
 import { formatPreview, previewCheckout } from "./checkout.ts";
 import { formatPlace, placeOrder } from "./place.ts";
+import { bookSlot, formatBook, formatSlots, listSlots } from "./slots.ts";
 import { readProduct, searchCatalog } from "./catalog.ts";
 import { addToCart, changeQuantity, readCart, removeLine, type Cart, type CartResult, type CartUnit } from "./cart.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
@@ -27,6 +28,8 @@ export const toolDescriptions = {
   cart_add: "Add a product to the cart. Pass min, max, and step together when the shop unit is known.",
   cart_update: "Change the quantity of a product already in the cart.",
   cart_remove: "Remove a product from the cart.",
+  list_slots: "List open delivery slots. Each line has the day, the hour, the delivery price, and the hour id.",
+  reserve_slot: "Reserve one slot for the shopper. Pass the day id and the hour id from list_slots. This does not place an order.",
   checkout_preview: "Show the cart lines, address, slot, and the shop total. This does not place an order.",
   place_order:
     "Place the order when the confirm matches the latest checkout total, address, and slot. A bank or card step is returned to the shopper.",
@@ -56,6 +59,10 @@ export async function callTool(name: string, args: Record<string, unknown>, cont
       return changeCart(args, context, "update");
     case "cart_remove":
       return remove(args, context);
+    case "list_slots":
+      return listSlotsTool(context);
+    case "reserve_slot":
+      return reserveSlot(args, context);
     case "checkout_preview":
       return checkoutPreview(context);
     case "place_order":
@@ -111,6 +118,26 @@ async function browserSignIn(args: Record<string, unknown>, context: ToolContext
     const message = error instanceof Error ? error.message : "Browser sign-in failed.";
     return fail(message.includes("playwright") ? `${message}\nInstall it with: npm install playwright` : message);
   }
+}
+
+async function listSlotsTool(context: ToolContext): Promise<ToolResult> {
+  const result = await listSlots({ sessionFile: context.sessionFile, origin: context.origin });
+  const text = formatSlots(result);
+  return result.ok ? ok(text) : fail(text);
+}
+
+async function reserveSlot(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+  const dayId = stringOf(args.dayId);
+  const timeslotId = stringOf(args.timeslotId);
+  if (!dayId || !timeslotId) return fail("A slot needs a day and an hour id.");
+  const result = await bookSlot({
+    sessionFile: context.sessionFile,
+    origin: context.origin,
+    dayId,
+    timeslotId,
+  });
+  const text = formatBook(result);
+  return result.ok ? ok(text) : fail(text);
 }
 
 async function place(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {

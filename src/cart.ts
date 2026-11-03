@@ -114,7 +114,7 @@ export async function shopExchange(input: {
 }): Promise<
   | { ok: true; status: number; body: unknown; location: string | null }
   | { ok: false; reason: "signed-out" }
-  | { ok: false; reason: "rejected"; status: number }
+  | { ok: false; reason: "rejected"; status: number; body: unknown }
 > {
   const opened = await openSession(input.sessionFile, input.origin);
   if (!opened.ok) return opened;
@@ -124,7 +124,7 @@ export async function shopExchange(input: {
   if (response.status >= 300 && response.status < 400) {
     return { ok: true, status: response.status, body: null, location };
   }
-  if (!response.ok) return { ok: false, reason: "rejected", status: response.status };
+  if (!response.ok) return { ok: false, reason: "rejected", status: response.status, body: await errorBody(response) };
   const text = await response.text();
   if (text.length === 0) return { ok: true, status: response.status, body: null, location };
   try {
@@ -163,6 +163,16 @@ async function shopRequest(opened: OpenSession, method: string, path: string, bo
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+}
+
+async function errorBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (text.length === 0) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 function failure(response: Response): CartResult | undefined {
