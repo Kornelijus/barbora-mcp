@@ -1,5 +1,6 @@
 import { signInWithBrowser, type BrowserLauncher } from "./browser-sign-in.ts";
 import { formatPreview, previewCheckout } from "./checkout.ts";
+import { formatPlace, placeOrder } from "./place.ts";
 import { readProduct, searchCatalog } from "./catalog.ts";
 import { addToCart, changeQuantity, readCart, removeLine, type Cart, type CartResult, type CartUnit } from "./cart.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
@@ -27,6 +28,8 @@ export const toolDescriptions = {
   cart_update: "Change the quantity of a product already in the cart.",
   cart_remove: "Remove a product from the cart.",
   checkout_preview: "Show the cart lines, address, slot, and the shop total. This does not place an order.",
+  place_order:
+    "Place the order when the confirm matches the latest checkout total, address, and slot. A bank or card step is returned to the shopper.",
 } as const;
 
 export type ToolName = keyof typeof toolDescriptions;
@@ -55,6 +58,8 @@ export async function callTool(name: string, args: Record<string, unknown>, cont
       return remove(args, context);
     case "checkout_preview":
       return checkoutPreview(context);
+    case "place_order":
+      return place(args, context);
     default:
       return fail(`Unknown tool ${name}.`);
   }
@@ -106,6 +111,20 @@ async function browserSignIn(args: Record<string, unknown>, context: ToolContext
     const message = error instanceof Error ? error.message : "Browser sign-in failed.";
     return fail(message.includes("playwright") ? `${message}\nInstall it with: npm install playwright` : message);
   }
+}
+
+async function place(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+  const total = numberOf(args.total);
+  const address = stringOf(args.address);
+  const slot = stringOf(args.slot);
+  if (total === undefined || !address || !slot) return fail("A confirm needs a total, an address, and a slot.");
+  const result = await placeOrder({
+    sessionFile: context.sessionFile,
+    origin: context.origin,
+    confirm: { total, address, slot },
+  });
+  const text = formatPlace(result);
+  return result.ok ? ok(text) : fail(text);
 }
 
 async function checkoutPreview(context: ToolContext): Promise<ToolResult> {

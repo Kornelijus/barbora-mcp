@@ -5,6 +5,7 @@ import { signInWithBrowser } from "./browser-sign-in.ts";
 import { addToCart, changeQuantity, readCart, removeLine, type CartResult, type CartUnit } from "./cart.ts";
 import { readProduct, searchCatalog } from "./catalog.ts";
 import { formatPreview, previewCheckout } from "./checkout.ts";
+import { formatPlace, placeOrder } from "./place.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
 import { signInWithPassword, type Country } from "./password-sign-in.ts";
 
@@ -30,6 +31,7 @@ function usage(): void {
   stdout.write("       cart set --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
   stdout.write("       cart remove --id <id>\n");
   stdout.write("       checkout\n");
+  stdout.write("       checkout place --total <n> --address <address> --slot <slot>\n");
 }
 
 function readCountry(): Country | undefined {
@@ -246,6 +248,11 @@ function readUnit(): CartUnit | undefined | "incomplete" {
 }
 
 async function checkoutCommand(): Promise<number> {
+  if (process.argv[3] === "place") return placeCommand();
+  if (process.argv[3] && !process.argv[3].startsWith("--")) {
+    usage();
+    return 1;
+  }
   const result = await previewCheckout({
     sessionFile: argument("--session-file") ?? sessionFile(),
     origin: argument("--origin"),
@@ -260,6 +267,24 @@ async function checkoutCommand(): Promise<number> {
   }
   stdout.write(`${formatPreview(result.preview)}\n`);
   return 0;
+}
+
+async function placeCommand(): Promise<number> {
+  const totalText = argument("--total");
+  const address = argument("--address");
+  const slot = argument("--slot");
+  const total = totalText === undefined ? Number.NaN : Number(totalText);
+  if (!address || !slot || !Number.isFinite(total)) {
+    usage();
+    return 1;
+  }
+  const result = await placeOrder({
+    sessionFile: argument("--session-file") ?? sessionFile(),
+    origin: argument("--origin"),
+    confirm: { total, address, slot },
+  });
+  stdout.write(`${formatPlace(result)}\n`);
+  return result.ok ? 0 : 1;
 }
 
 const command = process.argv[2];

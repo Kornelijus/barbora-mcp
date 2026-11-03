@@ -105,6 +105,35 @@ export async function shopJson(input: {
   return { ok: true, body: await response.json() };
 }
 
+export async function shopExchange(input: {
+  sessionFile: string;
+  origin?: string;
+  method: string;
+  path: string;
+  body?: unknown;
+}): Promise<
+  | { ok: true; status: number; body: unknown; location: string | null }
+  | { ok: false; reason: "signed-out" }
+  | { ok: false; reason: "rejected"; status: number }
+> {
+  const opened = await openSession(input.sessionFile, input.origin);
+  if (!opened.ok) return opened;
+  const response = await shopRequest(opened, input.method, input.path, input.body);
+  if (response.status === 401) return { ok: false, reason: "signed-out" };
+  const location = response.headers.get("location");
+  if (response.status >= 300 && response.status < 400) {
+    return { ok: true, status: response.status, body: null, location };
+  }
+  if (!response.ok) return { ok: false, reason: "rejected", status: response.status };
+  const text = await response.text();
+  if (text.length === 0) return { ok: true, status: response.status, body: null, location };
+  try {
+    return { ok: true, status: response.status, body: JSON.parse(text) as unknown, location };
+  } catch {
+    return { ok: false, reason: "rejected", status: response.status };
+  }
+}
+
 type OpenSession = { ok: true; session: Session; origin: string; cookie: string };
 
 async function openSession(sessionFile: string, origin: string | undefined): Promise<OpenSession | { ok: false; reason: "signed-out" }> {

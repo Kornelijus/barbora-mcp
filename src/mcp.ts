@@ -28,6 +28,11 @@ const inputSchemas: Record<ToolName, z.ZodType> = {
   cart_update: z.object({ productId: z.string(), quantity: z.number(), ...unitBounds }),
   cart_remove: z.object({ productId: z.string() }),
   checkout_preview: z.object({}),
+  place_order: z.object({
+    total: z.number(),
+    address: z.string(),
+    slot: z.string(),
+  }),
 };
 
 export function createBarboraServer(context: ToolContext): McpServer {

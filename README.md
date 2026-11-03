@@ -47,13 +47,16 @@ node --experimental-strip-types src/cli.ts cart remove --id 000000000001335200
 
 `checkout` shows the lines, address, slot, and the total the shop calculated. It does not place an order. A missing slot is called out for the shopper to choose.
 
+`checkout place` places the order when `--total`, `--address`, and `--slot` match that checkout. A bank or card step is printed for the shopper to finish.
+
 ```bash
 node --experimental-strip-types src/cli.ts checkout
+node --experimental-strip-types src/cli.ts checkout place --total 9.99 --address "Gedimino pr. 1-5, Vilnius" --slot "Tue 10:00-12:00"
 ```
 
 ## MCP
 
-An agent on this machine can call the same sign-in, search, and cart actions. The password is a tool argument for that call and is not stored.
+An agent on this machine can call the same sign-in, search, cart, checkout preview, and place-order actions. The password is a tool argument for that call and is not stored. Placing an order needs a confirm of the latest total, address, and slot. A bank or card step is returned to the shopper.
 
 ```json
 {
@@ -73,4 +76,4 @@ npm test
 
 ## Status
 
-Password sign-in, browser sign-in, catalog search, the cart, the local MCP server, and checkout preview work. Placing an order is a separate issue. Nothing here places an order yet.
+Password sign-in, browser sign-in, catalog search, the cart, the local MCP server, checkout preview, and placing an order after a matching confirm work. A bank or card step is handed back to the shopper.
