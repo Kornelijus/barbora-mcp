@@ -76,4 +76,4 @@ npm test
 
 ## Status
 
-Password sign-in, browser sign-in, catalog search, the cart, the local MCP server, checkout preview, and placing an order after a matching confirm work. A bank or card step is handed back to the shopper.
+Password sign-in, browser sign-in, catalog search, the cart, the local MCP server, checkout preview, and placing an order after a matching confirm work. A bank or card step is handed back to the shopper. The shopping skill is `.grok/skills/barbora/SKILL.md`.
