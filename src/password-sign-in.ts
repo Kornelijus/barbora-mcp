@@ -28,6 +28,14 @@ const SHOP_ORIGIN: Record<Country, string> = {
   LV: "https://barbora.lv",
 };
 
+export function shopOrigin(country: Country): string {
+  return SHOP_ORIGIN[country];
+}
+
+export function shopTarget(country: Country): string {
+  return SHOP_TARGET[country];
+}
+
 export type SignInResult =
   | { ok: true; session: Session }
   | { ok: false; reason: "invalid-credentials" | "rejected"; status: number };
@@ -40,7 +48,7 @@ export async function signInWithPassword(input: {
   sessionFile: string;
   origin?: string;
 }): Promise<SignInResult> {
-  const origin = input.origin ?? SHOP_ORIGIN[input.country];
+  const origin = input.origin ?? shopOrigin(input.country);
   const rememberMe = input.rememberMe ?? true;
   const response = await fetch(new URL("/proxy/api/v1/auth/login", origin), {
     method: "POST",
@@ -48,7 +56,7 @@ export async function signInWithPassword(input: {
     headers: {
       accept: "application/json",
       "content-type": "application/json",
-      "x-target": SHOP_TARGET[input.country],
+      "x-target": shopTarget(input.country),
       origin,
       referer: new URL("/login", origin).toString(),
     },
@@ -73,10 +81,14 @@ export async function signInWithPassword(input: {
     cookies: response.headers.getSetCookie().map((raw) => parseSetCookie(raw, host)),
     createdAt: new Date().toISOString(),
   };
-  await mkdir(path.dirname(input.sessionFile), { recursive: true });
-  await writeFile(input.sessionFile, JSON.stringify(session, null, 2), { mode: 0o600 });
-  await chmod(input.sessionFile, 0o600);
+  await saveSession(input.sessionFile, session);
   return { ok: true, session };
+}
+
+export async function saveSession(sessionFile: string, session: Session): Promise<void> {
+  await mkdir(path.dirname(sessionFile), { recursive: true });
+  await writeFile(sessionFile, JSON.stringify(session, null, 2), { mode: 0o600 });
+  await chmod(sessionFile, 0o600);
 }
 
 export async function loadSession(sessionFile: string): Promise<Session | null> {

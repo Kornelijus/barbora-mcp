@@ -16,10 +16,17 @@ node --experimental-strip-types src/cli.ts login --email you@example.com --count
 
 `LT`, `EE`, and `LV` are the three shops. `--password-stdin` reads the password from stdin instead of a prompt.
 
+Browser sign-in opens the shop's own login page in Chrome. Google, Facebook, and Apple work there. It needs Playwright and Chrome:
+
+```bash
+npm install playwright
+node --experimental-strip-types src/cli.ts login --browser --country LT
+```
+
 ```bash
 npm test
 ```
 
 ## Status
 
-Password sign-in is the first slice. Browser sign-in, catalog search, the cart, and checkout are separate issues. Nothing here places an order yet.
+Password sign-in and browser sign-in save a session. Catalog search, the cart, and checkout are separate issues. Nothing here places an order yet.
