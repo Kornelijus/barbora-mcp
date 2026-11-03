@@ -43,10 +43,26 @@ node --experimental-strip-types src/cli.ts cart set --id 000000000001335200 --qu
 node --experimental-strip-types src/cli.ts cart remove --id 000000000001335200
 ```
 
+## MCP
+
+An agent on this machine can call the same sign-in, search, and cart actions. The password is a tool argument for that call and is not stored.
+
+```json
+{
+  "mcpServers": {
+    "barbora": {
+      "command": "node",
+      "args": ["--experimental-strip-types", "src/mcp.ts"],
+      "cwd": "/absolute/path/to/barbora-agent"
+    }
+  }
+}
+```
+
 ```bash
 npm test
 ```
 
 ## Status
 
-Password sign-in, browser sign-in, catalog search, and the cart work. Checkout is a separate issue. Nothing here places an order yet.
+Password sign-in, browser sign-in, catalog search, the cart, and the local MCP server work. Checkout is a separate issue. Nothing here places an order yet.
