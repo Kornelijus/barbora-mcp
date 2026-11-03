@@ -2,6 +2,7 @@ import { stdin, stdout } from "node:process";
 import { homedir } from "node:os";
 import path from "node:path";
 import { signInWithBrowser } from "./browser-sign-in.ts";
+import { addToCart, changeQuantity, readCart, removeLine, type CartResult, type CartUnit } from "./cart.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
 import { signInWithPassword, type Country } from "./password-sign-in.ts";
 
@@ -20,6 +21,10 @@ function argument(name: string): string | undefined {
 function usage(): void {
   stdout.write("Usage: login --email you@example.com --country LT|EE|LV\n");
   stdout.write("       login --browser --country LT|EE|LV\n");
+  stdout.write("       cart\n");
+  stdout.write("       cart add --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
+  stdout.write("       cart set --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
+  stdout.write("       cart remove --id <id>\n");
 }
 
 function readStdin(): Promise<string> {
@@ -128,10 +133,67 @@ async function login(): Promise<number> {
   return 0;
 }
 
+function printCart(result: CartResult): number {
+  if (!result.ok) {
+    const message =
+      result.reason === "signed-out"
+        ? "Sign in before using the cart.\n"
+        : result.reason === "quantity"
+          ? "That quantity is outside the unit the shop sells.\n"
+          : `Barbora rejected the cart (${result.status}).\n`;
+    stdout.write(message);
+    return 1;
+  }
+  if (result.cart.lines.length === 0) stdout.write("The cart is empty.\n");
+  for (const line of result.cart.lines) {
+    stdout.write(`${line.title} — ${line.quantity} — ${line.price}\n`);
+  }
+  stdout.write(`Total — ${result.cart.total}\n`);
+  return 0;
+}
+
+async function cartCommand(): Promise<number> {
+  const file = argument("--session-file") ?? sessionFile();
+  const origin = argument("--origin");
+  const action = process.argv[3];
+  if (!action || action.startsWith("--")) return printCart(await readCart({ sessionFile: file, origin }));
+  const productId = argument("--id");
+  if (!productId || !["add", "set", "remove"].includes(action)) {
+    usage();
+    return 1;
+  }
+  if (action === "remove") return printCart(await removeLine({ sessionFile: file, origin, productId }));
+  const quantity = Number(argument("--quantity"));
+  if (!Number.isFinite(quantity)) {
+    usage();
+    return 1;
+  }
+  const unit = readUnit();
+  if (unit === "incomplete") {
+    usage();
+    return 1;
+  }
+  if (action === "add") return printCart(await addToCart({ sessionFile: file, origin, productId, quantity, unit }));
+  return printCart(await changeQuantity({ sessionFile: file, origin, productId, quantity, unit }));
+}
+
+function readUnit(): CartUnit | undefined | "incomplete" {
+  const min = argument("--min");
+  const max = argument("--max");
+  const step = argument("--step");
+  if (min === undefined && max === undefined && step === undefined) return undefined;
+  if (min === undefined || max === undefined || step === undefined) return "incomplete";
+  const unit = { min: Number(min), max: Number(max), step: Number(step) };
+  if (!Number.isFinite(unit.min) || !Number.isFinite(unit.max) || !Number.isFinite(unit.step) || unit.step <= 0) {
+    return "incomplete";
+  }
+  return unit;
+}
+
 const command = process.argv[2];
-if (command !== "login") {
+if (command === "login") process.exitCode = await login();
+else if (command === "cart") process.exitCode = await cartCommand();
+else {
   usage();
   process.exitCode = 1;
-} else {
-  process.exitCode = await login();
 }
