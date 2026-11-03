@@ -5,6 +5,7 @@ import { signInWithBrowser } from "./browser-sign-in.ts";
 import { addToCart, changeQuantity, readCart, removeLine, type CartResult, type CartUnit } from "./cart.ts";
 import { readProduct, searchCatalog } from "./catalog.ts";
 import { formatPreview, previewCheckout } from "./checkout.ts";
+import { bookSlot, formatBook, formatSlots, listSlots } from "./slots.ts";
 import { formatPlace, placeOrder } from "./place.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
 import { signInWithPassword, type Country } from "./password-sign-in.ts";
@@ -31,6 +32,8 @@ function usage(): void {
   stdout.write("       cart set --id <id> --quantity <n> --min <n> --max <n> --step <n>\n");
   stdout.write("       cart remove --id <id>\n");
   stdout.write("       checkout\n");
+  stdout.write("       checkout slots\n");
+  stdout.write("       checkout slot --day <day> --id <id>\n");
   stdout.write("       checkout place --total <n> --address <address> --slot <slot>\n");
 }
 
@@ -249,6 +252,8 @@ function readUnit(): CartUnit | undefined | "incomplete" {
 
 async function checkoutCommand(): Promise<number> {
   if (process.argv[3] === "place") return placeCommand();
+  if (process.argv[3] === "slots") return slotsCommand();
+  if (process.argv[3] === "slot") return slotCommand();
   if (process.argv[3] && !process.argv[3].startsWith("--")) {
     usage();
     return 1;
@@ -267,6 +272,32 @@ async function checkoutCommand(): Promise<number> {
   }
   stdout.write(`${formatPreview(result.preview)}\n`);
   return 0;
+}
+
+async function slotsCommand(): Promise<number> {
+  const result = await listSlots({
+    sessionFile: argument("--session-file") ?? sessionFile(),
+    origin: argument("--origin"),
+  });
+  stdout.write(`${formatSlots(result)}\n`);
+  return result.ok ? 0 : 1;
+}
+
+async function slotCommand(): Promise<number> {
+  const dayId = argument("--day");
+  const timeslotId = argument("--id");
+  if (!dayId || !timeslotId) {
+    usage();
+    return 1;
+  }
+  const result = await bookSlot({
+    sessionFile: argument("--session-file") ?? sessionFile(),
+    origin: argument("--origin"),
+    dayId,
+    timeslotId,
+  });
+  stdout.write(`${formatBook(result)}\n`);
+  return result.ok ? 0 : 1;
 }
 
 async function placeCommand(): Promise<number> {

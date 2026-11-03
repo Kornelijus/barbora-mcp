@@ -3,7 +3,7 @@ name: barbora
 description: >
   Shop on Barbora for a shopper. Use when signing in to barbora.lt, barbora.ee,
   or barbora.lv, searching the catalog, changing the cart, previewing checkout,
-  or placing an order after the shopper confirms one total, address, and slot.
+  reserving a delivery slot, or placing an order after the shopper confirms one total, address, and slot.
 ---
 
 # Shop on Barbora
@@ -47,7 +47,9 @@ Done when the cart the tool returns is the cart the shopper asked for.
 
 Call `checkout_preview`. Show the shopper the lines, the address, the slot, and the total.
 
-Stop while the address is unchosen, the slot is unchosen, a line is age-restricted, or the age check is still open. The preview marks an age-restricted line as age-limited. Tell the shopper which of those is open.
+Stop before `place_order` while the address is unchosen, the slot is unchosen, a line is age-restricted, or the age check is still open. The preview marks an age-restricted line as age-limited. Tell the shopper which of those is open.
+
+When the slot is unchosen, call `list_slots` and show the open hours. Call `reserve_slot` only after the shopper names one day and one hour. Then call `checkout_preview` again. Delivery can change the total.
 
 Done when you have shown the shopper that preview.
 

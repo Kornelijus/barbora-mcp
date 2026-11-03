@@ -47,16 +47,20 @@ node --experimental-strip-types src/cli.ts cart remove --id 000000000001335200
 
 `checkout` shows the lines, address, slot, and the total the shop calculated. It does not place an order. A missing slot is called out for the shopper to choose.
 
+`checkout slots` lists the open hours. `checkout slot` reserves the hour the shopper names. Reserving a slot does not place an order. Delivery can change the total, so read `checkout` again after a reservation.
+
 `checkout place` places the order when `--total`, `--address`, and `--slot` match that checkout. A bank or card step is printed for the shopper to finish.
 
 ```bash
 node --experimental-strip-types src/cli.ts checkout
-node --experimental-strip-types src/cli.ts checkout place --total 9.99 --address "Gedimino pr. 1-5, Vilnius" --slot "Tue 10:00-12:00"
+node --experimental-strip-types src/cli.ts checkout slots
+node --experimental-strip-types src/cli.ts checkout slot --day 2026-11-04 --id <hour-id>
+node --experimental-strip-types src/cli.ts checkout place --total 9.99 --address "Gedimino pr. 1-5, Vilnius" --slot "2026-11-04T08:00:00"
 ```
 
 ## MCP
 
-An agent on this machine can call the same sign-in, search, cart, checkout preview, and place-order actions. The password is a tool argument for that call and is not stored. Placing an order needs a confirm of the latest total, address, and slot. A bank or card step is returned to the shopper.
+An agent on this machine can call the same sign-in, search, cart, slot, checkout preview, and place-order actions. The password is a tool argument for that call and is not stored. Placing an order needs a confirm of the latest total, address, and slot. A bank or card step is returned to the shopper.
 
 ```json
 {
@@ -76,4 +80,4 @@ npm test
 
 ## Status
 
-Password sign-in, browser sign-in, catalog search, the cart, the local MCP server, checkout preview, and placing an order after a matching confirm work. A bank or card step is handed back to the shopper. The shopping skill is `.grok/skills/barbora/SKILL.md`.
+Password sign-in, browser sign-in, catalog search, the cart, the local MCP server, slot reservation, checkout preview, and placing an order after a matching confirm work. A bank or card step is handed back to the shopper. The shopping skill is `.grok/skills/barbora/SKILL.md`.
