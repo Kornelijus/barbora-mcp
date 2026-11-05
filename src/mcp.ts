@@ -27,6 +27,7 @@ const inputSchemas: Record<ToolName, z.ZodType> = {
   cart_add: z.object({ productId: z.string(), quantity: z.number(), ...unitBounds }),
   cart_update: z.object({ productId: z.string(), quantity: z.number(), ...unitBounds }),
   cart_remove: z.object({ productId: z.string() }),
+  cart_clear: z.object({}),
   list_slots: z.object({}),
   reserve_slot: z.object({
     dayId: z.string(),

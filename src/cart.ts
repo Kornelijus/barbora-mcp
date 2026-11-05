@@ -60,6 +60,22 @@ export async function changeQuantity(input: {
   });
 }
 
+export async function clearCart(input: {
+  sessionFile: string;
+  origin?: string;
+}): Promise<CartResult & { removed?: number }> {
+  const current = await readCart(input);
+  if (!current.ok) return current;
+  const ids = [...new Set(current.cart.lines.map((line) => line.id))];
+  let cart = current.cart;
+  for (const productId of ids) {
+    const removed = await removeLine({ sessionFile: input.sessionFile, origin: input.origin, productId });
+    if (!removed.ok) return removed;
+    cart = removed.cart;
+  }
+  return { ok: true, cart, removed: ids.length };
+}
+
 export async function removeLine(input: {
   sessionFile: string;
   productId: string;
