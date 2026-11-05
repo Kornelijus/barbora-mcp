@@ -4,7 +4,8 @@ import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { addToCart, changeQuantity, readCart, removeLine } from "../src/cart.ts";
+import { addToCart, changeQuantity, clearCart, readCart, removeLine } from "../src/cart.ts";
+import { callTool } from "../src/tools.ts";
 
 const UNIT = { type: "units", min: 1, max: 10, step: 1, initialValue: 1 };
 
@@ -118,6 +119,47 @@ test("a signed-in shopper can read, add, change, and remove a cart line", async 
     assert.equal(seen[3].body, JSON.stringify({ quantity: 2 }));
     assert.equal(seen.every((call) => call.cookie === ".BRBAUTH=shop-session"), true);
     assert.equal(seen.every((call) => call.target === "LT_MAIN_WEB"), true);
+  } finally {
+    server.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("clearing a cart removes each line and an empty cart stays empty", async () => {
+  const items = [
+    { type: "Product", id: "milk", title: "Milk", quantity: 1, price: 1, unit: UNIT },
+    { type: "Product", id: "bread", title: "Bread", quantity: 1, price: 2, unit: UNIT },
+  ];
+  const seen: string[] = [];
+  const server = createServer((req, res) => {
+    seen.push(`${req.method} ${req.url}`);
+    if (req.method === "DELETE") {
+      const id = decodeURIComponent((req.url ?? "").split("/").pop() ?? "");
+      const index = items.findIndex((item) => item.id === id);
+      if (index >= 0) items.splice(index, 1);
+    }
+    const total = items.reduce((sum, item) => sum + item.price, 0);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ items, summary: { prices: { totalPrice: total } } }));
+  });
+  const port = await listen(server);
+  const { dir, sessionFile } = await fixtureSession();
+  const origin = `http://127.0.0.1:${port}`;
+  try {
+    const cleared = await callTool("cart_clear", {}, { sessionFile, origin });
+    assert.equal(cleared.isError, false);
+    assert.equal(cleared.text, "Cleared the previous cart.\nThe cart is empty.\nTotal — 0");
+    assert.deepEqual(items, []);
+    assert.deepEqual(seen, [
+      "GET /proxy/api/v1/cart",
+      "DELETE /proxy/api/v1/cart/item/milk",
+      "GET /proxy/api/v1/cart",
+      "DELETE /proxy/api/v1/cart/item/bread",
+      "GET /proxy/api/v1/cart",
+    ]);
+    const again = await clearCart({ sessionFile, origin });
+    assert.equal(again.ok && again.removed, 0);
+    assert.deepEqual(again.ok && again.cart, { lines: [], total: 0 });
   } finally {
     server.close();
     await rm(dir, { recursive: true, force: true });

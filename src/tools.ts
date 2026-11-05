@@ -3,7 +3,7 @@ import { formatPreview, previewCheckout } from "./checkout.ts";
 import { formatPlace, placeOrder } from "./place.ts";
 import { bookSlot, formatBook, formatSlots, listSlots } from "./slots.ts";
 import { readProduct, searchCatalog } from "./catalog.ts";
-import { addToCart, changeQuantity, readCart, removeLine, type Cart, type CartResult, type CartUnit } from "./cart.ts";
+import { addToCart, changeQuantity, clearCart, readCart, removeLine, type Cart, type CartResult, type CartUnit } from "./cart.ts";
 import { chromeLauncher } from "./chrome-launcher.ts";
 import { loadSession, signInWithPassword, type Country } from "./password-sign-in.ts";
 
@@ -28,6 +28,7 @@ export const toolDescriptions = {
   cart_add: "Add a product to the cart. Pass min, max, and step together when the shop unit is known.",
   cart_update: "Change the quantity of a product already in the cart.",
   cart_remove: "Remove a product from the cart.",
+  cart_clear: "Remove every line from the cart. An empty cart stays empty.",
   list_slots: "List open delivery slots. Each line has the day, the hour, the delivery price, and the hour id.",
   reserve_slot: "Reserve one slot for the shopper. Pass the day id and the hour id from list_slots. This does not place an order.",
   checkout_preview: "Show the cart lines, address, slot, and the shop total. This does not place an order.",
@@ -59,6 +60,8 @@ export async function callTool(name: string, args: Record<string, unknown>, cont
       return changeCart(args, context, "update");
     case "cart_remove":
       return remove(args, context);
+    case "cart_clear":
+      return clear(context);
     case "list_slots":
       return listSlotsTool(context);
     case "reserve_slot":
@@ -203,6 +206,13 @@ async function changeCart(args: Record<string, unknown>, context: ToolContext, a
   const input = { sessionFile: context.sessionFile, origin: context.origin, productId, quantity, unit };
   const result = action === "add" ? await addToCart(input) : await changeQuantity(input);
   return cartText(result);
+}
+
+async function clear(context: ToolContext): Promise<ToolResult> {
+  const result = await clearCart(context);
+  if (!result.ok) return cartText(result);
+  const text = formatCart(result.cart);
+  return ok(result.removed ? `Cleared the previous cart.\n${text}` : text);
 }
 
 async function remove(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {

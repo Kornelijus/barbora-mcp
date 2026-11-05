@@ -39,7 +39,7 @@ Done when each product you will add has an id, a price, and a unit.
 
 `cart_add` takes the product id and the quantity. Pass `min`, `max`, and `step` together when you know the unit.
 
-`cart_update` changes a quantity. `cart_remove` takes a product off the cart.
+`cart_update` changes a quantity. `cart_remove` takes a product off the cart. `cart_clear` removes every line. An empty cart stays empty.
 
 Done when the cart the tool returns is the cart the shopper asked for.
 
